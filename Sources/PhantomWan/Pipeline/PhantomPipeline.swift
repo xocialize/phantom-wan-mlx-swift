@@ -39,6 +39,15 @@ public final class PhantomPipeline: @unchecked Sendable {
     ) async throws -> PhantomPipeline {
         let config = try WanConfig.load(from: modelDir.appendingPathComponent("config.json"))
 
+        // Self-certifying config line — prove from the console WHICH path this run took
+        // (dtype + the fp32-SDPA upcast + cache caps). The VACE-saga lesson: "set in the scheme"
+        // ≠ "engaged in this run". `ditDType=bfloat16 WAN_FP32_SDPA=0` = the bf16-fused fast path.
+        let env = ProcessInfo.processInfo.environment
+        print("[Phantom config] ditDType=\(ditDType) "
+            + "WAN_FP32_SDPA=\(wanForceFp32SdpaLargeSeq ? 1 : 0) "
+            + "DENOISE_CACHE_MB=\(env["DENOISE_CACHE_MB"] ?? "2048") "
+            + "DECODE_CACHE_MB=\(env["DECODE_CACHE_MB"] ?? "2048")")
+
         // Stock WanModel — drop the stray `freqs` (rebuilt in-model).
         let model = WanModel(config)
         var dw = try WeightLoader.loadSafetensors(

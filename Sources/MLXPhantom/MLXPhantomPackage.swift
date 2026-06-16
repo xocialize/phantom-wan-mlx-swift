@@ -73,7 +73,14 @@ public final class MLXPhantomPackage: ModelPackage {
         } else {
             directory = try await WeightLoader.snapshotDownload(repoID: configuration.repo)
         }
-        pipeline = try await PhantomPipeline.fromPretrained(modelDir: directory)
+        // `PHANTOM_DIT_DTYPE=bf16` runs the DiT in bf16 (pair with `WAN_FP32_SDPA=0` for the full
+        // bf16-fused-SDPA fast path — VACE-proven sound for the 1.3B). Default fp32. NOTE: the
+        // VACE-prefixed envs (`VACE_DIT_DTYPE`/`VACE_MEM_LOG`/`VCU_CACHE_MB`) are NOT read here —
+        // Phantom's knobs are `PHANTOM_DIT_DTYPE` + the wan-core `WAN_FP32_SDPA`/`WAN_VAE_LOG` +
+        // `DENOISE_CACHE_MB`/`DECODE_CACHE_MB`.
+        let ditDType: DType =
+            ProcessInfo.processInfo.environment["PHANTOM_DIT_DTYPE"] == "bf16" ? .bfloat16 : .float32
+        pipeline = try await PhantomPipeline.fromPretrained(modelDir: directory, ditDType: ditDType)
     }
 
     public func unload() async {

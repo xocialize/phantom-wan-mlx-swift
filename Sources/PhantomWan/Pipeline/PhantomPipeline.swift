@@ -97,7 +97,7 @@ public final class PhantomPipeline: @unchecked Sendable {
         var encoder: UMT5EncoderModel? = try loadTextEncoder()
         let result = try body(encoder!)
         encoder = nil
-        MLX.GPU.clearCache()
+        MLX.Memory.clearCache()
         return result
     }
 
@@ -150,20 +150,25 @@ public final class PhantomPipeline: @unchecked Sendable {
             steps: steps ?? config.sampleSteps, shift: config.sampleShift,
             guideImg: guideImg ?? 5.0, guideText: guideText ?? 7.5, seed: seed, onStep: onStep)
         eval(latent)
-        MLX.GPU.clearCache()
+        MLX.Memory.clearCache()
 
         return decodeLatent(latent)
     }
 
     /// Decode a channels-first latent `[C, T, h, w]` → frames `[1, 3, T', H', W']` in [-1, 1].
-    /// Streaming decode (one latent chunk live) + the `Memory.cacheLimit` cap, on the CPU stream.
+    /// Streaming decode (one latent chunk live) + the `Memory.cacheLimit` cap.
     public func decodeLatent(_ latent: MLXArray) -> MLXArray {
         let prevCacheLimit = Memory.cacheLimit
         let capMB = ProcessInfo.processInfo.environment["DECODE_CACHE_MB"].flatMap { Int($0) } ?? 2048
         Memory.cacheLimit = capMB * 1_000_000
         defer { Memory.cacheLimit = prevCacheLimit }
-        MLX.GPU.clearCache()
-        return Device.withDefaultDevice(.cpu) {
+        MLX.Memory.clearCache()
+        // DECODE_DEVICE=gpu runs the streaming VAE decode on the GPU stream. Default stays .cpu
+        // (fp32 parity / cold-load-watchdog avoidance). Per-chunk command buffers are short, so the
+        // whole-seq watchdog-resubmit risk is bounded. Identical 16-ch decode + pattern as VACE,
+        // where the GPU path took decode from >27 min (CPU) to 46.6 s, bounded, no watchdog.
+        let decodeDevice: Device = (ProcessInfo.processInfo.environment["DECODE_DEVICE"] == "gpu") ? .gpu : .cpu
+        return Device.withDefaultDevice(decodeDevice) {
             let video = decodeStreaming(vae: vae, latent.expandedDimensions(axis: 0), chunkLat: 1)
             eval(video)
             return video

@@ -65,7 +65,8 @@ public func sampleS2V(
             sample: latent.expandedDimensions(axis: 0))
         latent = stepped.squeezed(axis: 0)
         eval(latent)
-        MLX.GPU.clearCache()
+        MLX.Memory.clearCache()
+        WanDebug.stats("denoise step \(i + 1)/\(steps)", latent)  // WAN_DEBUG_STATS (latent divergence/zeroing)
         try onStep?(i, steps, latent)
     }
     return PhantomReference.stripRefs(latent, k: k)  // [16, F, h, w]

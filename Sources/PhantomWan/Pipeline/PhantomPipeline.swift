@@ -163,11 +163,11 @@ public final class PhantomPipeline: @unchecked Sendable {
         Memory.cacheLimit = capMB * 1_000_000
         defer { Memory.cacheLimit = prevCacheLimit }
         MLX.Memory.clearCache()
-        // DECODE_DEVICE=gpu runs the streaming VAE decode on the GPU stream. Default stays .cpu
-        // (fp32 parity / cold-load-watchdog avoidance). Per-chunk command buffers are short, so the
-        // whole-seq watchdog-resubmit risk is bounded. Identical 16-ch decode + pattern as VACE,
-        // where the GPU path took decode from >27 min (CPU) to 46.6 s, bounded, no watchdog.
-        let decodeDevice: Device = (ProcessInfo.processInfo.environment["DECODE_DEVICE"] == "gpu") ? .gpu : .cpu
+        // The streaming VAE decode runs on the GPU stream by default — identical 16-ch decode + pattern
+        // as VACE, where GPU took decode from >27 min (CPU) to 46.6 s, bounded, no watchdog at
+        // chunkLat=1 (short per-chunk command buffers; Phantom GPU-decode validated at 49f+81f).
+        // DECODE_DEVICE=cpu is the escape hatch (legacy fp32-parity / watchdog-avoidance path).
+        let decodeDevice: Device = (ProcessInfo.processInfo.environment["DECODE_DEVICE"] == "cpu") ? .cpu : .gpu
         return Device.withDefaultDevice(decodeDevice) {
             let video = decodeStreaming(vae: vae, latent.expandedDimensions(axis: 0), chunkLat: 1)
             eval(video)

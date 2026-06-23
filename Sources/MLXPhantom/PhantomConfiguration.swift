@@ -4,7 +4,7 @@ import MLXToolKit
 
 /// Init-time configuration for `MLXPhantomPackage` (C9): which variant + where the flat checkpoint
 /// lives. Per-request prompt/refs/size ride the canonical `T2VRequest`, not here.
-public struct PhantomConfiguration: PackageConfiguration, ModelStorable {
+public struct PhantomConfiguration: PackageConfiguration, ModelStorable, QuantConfigured {
     public var repo: String
     public var revision: String?
     public var quant: Quant

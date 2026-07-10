@@ -88,6 +88,9 @@ public final class MLXPhantomPackage: ModelPackage {
     }
 
     public func run(_ request: any CapabilityRequest) async throws -> any CapabilityResponse {
+        // CAN-1: the entry checkpoint is the FIRST act of run() — before the notLoaded
+        // guard, capability validation, or dispatch (run-lifecycle program, engine 0.27.0).
+        try Task.checkCancellation()
         guard let pipeline else { throw PackageError.notLoaded }
         switch request.capability {
         case .textToVideo:
@@ -130,6 +133,9 @@ public final class MLXPhantomPackage: ModelPackage {
             negativePrompt: request.negativePrompt, width: width, height: height,
             numFrames: numFrames, steps: steps, guideImg: request.guidanceScale,
             seed: request.seed, onStep: onStep)
+        // Post-core checkpoint: the streaming VAE decode bails per temporal chunk
+        // (non-throwing) — discard a truncated result and rethrow here.
+        try Task.checkCancellation()
         let mp4 = try await encodeMP4(frames: frames, fps: fps)
         return T2VResponse(
             video: Video(format: .mp4, data: mp4,

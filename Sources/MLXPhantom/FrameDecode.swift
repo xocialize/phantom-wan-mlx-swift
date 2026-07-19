@@ -25,7 +25,7 @@ enum FrameDecodeError: Error {
 /// the ref encodes subject identity (not frame conditioning), so the flip was cosmetic, but corrected
 /// here for consistency. Drawing the CGImage straight into the `premultipliedLast` context yields the
 /// top-down raster the pipeline uses, so no flip is applied.
-private func rgbCHW(_ cg: CGImage, width: Int, height: Int) -> [Float] {
+func rgbCHW(_ cg: CGImage, width: Int, height: Int) -> [Float] {
     var rgba = [UInt8](repeating: 0, count: width * height * 4)
     let ctx = CGContext(
         data: &rgba, width: width, height: height, bitsPerComponent: 8,
@@ -48,7 +48,7 @@ private func rgbCHW(_ cg: CGImage, width: Int, height: Int) -> [Float] {
     return chw
 }
 
-private func cgImage(from data: Data) throws -> CGImage {
+func cgImage(from data: Data) throws -> CGImage {
     guard let src = CGImageSourceCreateWithData(data as CFData, nil),
           let cg = CGImageSourceCreateImageAtIndex(src, 0, nil)
     else { throw FrameDecodeError.imageDecode }
